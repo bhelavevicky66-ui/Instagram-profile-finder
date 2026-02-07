@@ -1,0 +1,7 @@
+{
+  "name": "InstaID Finder",
+  "description": "An intelligent Instagram profile discovery tool powered by Gemini with Google Search grounding to find accounts by name or brand.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
