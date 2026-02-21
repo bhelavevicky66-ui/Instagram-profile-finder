@@ -8,9 +8,9 @@ interface ResultCardProps {
 
 const ResultCard: React.FC<ResultCardProps> = ({ profile }) => {
   // Mock data for visual appeal
-  const posts = Math.floor(Math.random() * 500) + 12;
-  const followers = (Math.random() * 5 + 1).toFixed(1) + "K";
-  const following = Math.floor(Math.random() * 400) + 50;
+  const posts = "---";
+  const aan = "---";
+  const following = "---";
 
   return (
     <div className="bg-[#121212] border border-[#262626] rounded-[2.5rem] p-8 w-full max-w-sm mx-auto shadow-[0_40px_80px_-15px_rgba(0,0,0,0.9)] animate-slideUp relative overflow-hidden group">
@@ -49,8 +49,8 @@ const ResultCard: React.FC<ResultCardProps> = ({ profile }) => {
             <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Posts</div>
           </div>
           <div className="text-center border-r border-[#262626]">
-            <div className="text-base font-black text-white">{followers}</div>
-            <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Followers</div>
+            <div className="text-base font-black text-white">{aan}</div>
+            <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Aan</div>
           </div>
           <div className="text-center">
             <div className="text-base font-black text-white">{following}</div>
