@@ -8,6 +8,19 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        proxy: {
+          '/ig-api': {
+            target: 'https://www.instagram.com',
+            changeOrigin: true,
+            secure: true,
+            rewrite: (path) => path.replace(/^\/ig-api/, ''),
+            headers: {
+              'x-ig-app-id': '936619743392459',
+              'user-agent': 'Mozilla/5.0',
+              'accept': 'application/json, text/plain, */*',
+            },
+          },
+        },
       },
       plugins: [react()],
       define: {

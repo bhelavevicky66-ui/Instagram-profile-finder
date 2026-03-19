@@ -7,10 +7,9 @@ interface ResultCardProps {
 }
 
 const ResultCard: React.FC<ResultCardProps> = ({ profile }) => {
-  // Mock data for visual appeal
-  const posts = "---";
-  const aan = "---";
-  const following = "---";
+  const posts = typeof profile.posts === 'number' ? profile.posts.toLocaleString() : '---';
+  const followers = typeof profile.followers === 'number' ? profile.followers.toLocaleString() : '---';
+  const following = typeof profile.following === 'number' ? profile.following.toLocaleString() : '---';
 
   return (
     <div className="bg-[#121212] border border-[#262626] rounded-[2.5rem] p-8 w-full max-w-sm mx-auto shadow-[0_40px_80px_-15px_rgba(0,0,0,0.9)] animate-slideUp relative overflow-hidden group">
@@ -21,7 +20,11 @@ const ResultCard: React.FC<ResultCardProps> = ({ profile }) => {
         {/* Profile Pic Ring */}
         <div className="relative mb-6 p-1.5 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7]">
           <div className="w-28 h-28 rounded-full border-[5px] border-[#121212] overflow-hidden bg-[#1a1a1a] flex items-center justify-center">
-             <i className="fab fa-instagram text-5xl text-slate-800"></i>
+            {profile.profilePic ? (
+              <img src={profile.profilePic} alt={`${profile.username} profile`} className="w-full h-full object-cover" />
+            ) : (
+              <i className="fab fa-instagram text-5xl text-slate-800"></i>
+            )}
           </div>
           <div className="absolute bottom-1 right-1 w-8 h-8 bg-[#0095f6] rounded-full border-4 border-[#121212] flex items-center justify-center">
              <i className="fas fa-check text-[10px] text-white"></i>
@@ -42,6 +45,12 @@ const ResultCard: React.FC<ResultCardProps> = ({ profile }) => {
           {profile.bio || "Active Instagram user identified."}
         </p>
 
+        {profile.isPrivate && (
+          <div className="mb-6 text-[10px] font-bold uppercase tracking-widest text-amber-400 bg-amber-400/10 border border-amber-400/25 px-3 py-1.5 rounded-full">
+            Private Account
+          </div>
+        )}
+
         {/* Stats Row */}
         <div className="grid grid-cols-3 w-full mb-8 bg-[#1a1a1a]/50 border border-[#262626] rounded-2xl py-5 px-2">
           <div className="text-center border-r border-[#262626]">
@@ -49,8 +58,8 @@ const ResultCard: React.FC<ResultCardProps> = ({ profile }) => {
             <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Posts</div>
           </div>
           <div className="text-center border-r border-[#262626]">
-            <div className="text-base font-black text-white">{aan}</div>
-            <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Aan</div>
+            <div className="text-base font-black text-white">{followers}</div>
+            <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Followers</div>
           </div>
           <div className="text-center">
             <div className="text-base font-black text-white">{following}</div>

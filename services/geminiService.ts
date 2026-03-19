@@ -1,127 +1,129 @@
 
-import { GoogleGenAI } from "@google/genai";
 import { SearchResult, InstagramProfile } from "../types";
 
-const extractUsername = (url: string): string => {
-  try {
-    const cleanUrl = url.split('?')[0].replace(/\/$/, '');
-    const parts = cleanUrl.split('/');
-    const lastPart = parts[parts.length - 1];
-    // Avoid returning common words or subdomains
-    if (!lastPart || lastPart === 'www.instagram.com' || lastPart === 'reels' || lastPart === 'p') return 'user';
-    return lastPart;
-  } catch {
-    return 'user';
-  }
+const INSTAGRAM_BASE = 'https://www.instagram.com';
+
+const isLocalDev = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+};
+
+const toInstagramUrl = (path: string): string => {
+  return isLocalDev() ? `/ig-api${path}` : `${INSTAGRAM_BASE}${path}`;
 };
 
 const isValidInstaUsername = (str: string): boolean => {
-  // Instagram usernames: alphanumeric, periods, underscores, max 30 chars
   return /^[a-zA-Z0-9\._]{1,30}$/.test(str);
 };
 
+const normalizeQuery = (query: string): string => {
+  const cleaned = query.trim();
+
+  if (!cleaned) return '';
+
+  if (cleaned.startsWith('@')) {
+    return cleaned.slice(1).trim();
+  }
+
+  const instaUrlMatch = cleaned.match(/instagram\.com\/([a-zA-Z0-9\._]+)/i);
+  if (instaUrlMatch?.[1]) {
+    return instaUrlMatch[1];
+  }
+
+  return cleaned;
+};
+
+const fetchInstagramJson = async (url: string) => {
+  const response = await fetch(url, { method: 'GET' });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (data?.status === 'fail') {
+    throw new Error(data?.message || 'Instagram API failed');
+  }
+
+  return data;
+};
+
+const findUsernameFromSearch = async (query: string): Promise<string | null> => {
+  const searchUrl = toInstagramUrl(`/web/search/topsearch/?query=${encodeURIComponent(query)}`);
+  const data = await fetchInstagramJson(searchUrl);
+  const users = data?.users || [];
+
+  if (!Array.isArray(users) || users.length === 0) {
+    return null;
+  }
+
+  const normalized = query.toLowerCase();
+  const exact = users.find((item: any) => {
+    const user = item?.user;
+    const username = String(user?.username || '').toLowerCase();
+    const fullName = String(user?.full_name || '').toLowerCase();
+    return username === normalized || fullName === normalized;
+  });
+
+  return exact?.user?.username || users[0]?.user?.username || null;
+};
+
+const getProfileByUsername = async (username: string): Promise<InstagramProfile> => {
+  const profileUrl = toInstagramUrl(`/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`);
+  const data = await fetchInstagramJson(profileUrl);
+  const user = data?.data?.user;
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  return {
+    name: user.full_name || user.username,
+    bio: user.biography || 'Instagram profile found.',
+    url: `https://www.instagram.com/${user.username}/`,
+    username: user.username,
+    profilePic: user.profile_pic_url_hd || user.profile_pic_url,
+    followers: user.edge_followed_by?.count,
+    following: user.edge_follow?.count,
+    posts: user.edge_owner_to_timeline_media?.count,
+    isPrivate: user.is_private,
+  };
+};
+
 export const performInstaSearch = async (query: string): Promise<SearchResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const systemInstruction = `
-    You are an elite Instagram ID Finder. 
-    Your mission: Find the direct Instagram profile link for: "${query}".
-    
-    CRITICAL RULES:
-    1. Use Google Search to find any mention of this person on Instagram.
-    2. Look for patterns like instagram.com/username.
-    3. Even if you are unsure, provide the most likely Instagram link.
-    4. If the query looks like a username (e.g., has underscores or dots), prioritize that as the ID.
-  `;
+  const normalizedQuery = normalizeQuery(query);
+
+  if (!normalizedQuery) {
+    throw new Error('Please enter a valid Instagram username.');
+  }
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: [{ parts: [{ text: `What is the Instagram ID for "${query}"? Give me the direct URL.` }] }],
-      config: {
-        tools: [{ googleSearch: {} }],
-        systemInstruction: systemInstruction,
-      },
-    });
+    let usernameToLookup = normalizedQuery;
 
-    const text = response.text || "";
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    
-    let profiles: InstagramProfile[] = [];
-
-    // 1. Check grounding chunks for instagram.com links
-    groundingChunks.forEach(chunk => {
-      const uri = chunk.web?.uri;
-      if (uri && uri.includes('instagram.com/')) {
-        // Exclude non-profile pages
-        if (uri.includes('/reels/') || uri.includes('/p/') || uri.includes('/explore/') || uri.includes('/stories/')) return;
-
-        const username = extractUsername(uri);
-        if (username !== 'user') {
-          profiles.push({
-            name: chunk.web?.title?.split('•')[0].trim() || "Instagram User",
-            bio: chunk.web?.title?.split('•')[1]?.trim() || "Instagram Profile",
-            url: uri,
-            username: username
-          });
-        }
+    if (!isValidInstaUsername(usernameToLookup)) {
+      const discovered = await findUsernameFromSearch(normalizedQuery);
+      if (!discovered) {
+        throw new Error('User not found');
       }
-    });
-
-    // 2. Regex fallback for text mentions in AI response
-    const urlRegex = /https?:\/\/(www\.)?instagram\.com\/([a-zA-Z0-9\._]+)/gi;
-    let match;
-    while ((match = urlRegex.exec(text)) !== null) {
-      const url = match[0];
-      const username = match[2];
-      if (username && !['reels', 'p', 'explore', 'stories'].includes(username.toLowerCase())) {
-        if (!profiles.some(p => p.username === username)) {
-          profiles.push({
-            name: query,
-            bio: "Found via AI search analysis",
-            url: `https://www.instagram.com/${username}/`,
-            username: username
-          });
-        }
-      }
+      usernameToLookup = discovered;
     }
 
-    // 3. DIRECT GUESS FALLBACK: 
-    // If we found nothing but the query looks like a direct ID (e.g., vicky_bhelave)
-    if (profiles.length === 0 && isValidInstaUsername(query)) {
-      profiles.push({
-        name: query,
-        bio: "Directly identified from your search query.",
-        url: `https://www.instagram.com/${query}/`,
-        username: query
-      });
-    }
-
-    if (profiles.length === 0) {
-      throw new Error("Could not find this Instagram ID. Check the spelling and try again.");
-    }
-
-    // Deduplicate
-    const uniqueProfiles = profiles.filter((v, i, a) => a.findIndex(t => t.username === v.username) === i);
+    const profile = await getProfileByUsername(usernameToLookup);
 
     return {
-      text,
-      profiles: uniqueProfiles
+      text: 'Live profile data fetched from Instagram.',
+      profiles: [profile],
     };
   } catch (error: any) {
-    console.error("Insta Search Failed:", error);
-    // Even if API fails, if it's a valid username, let's just show it!
-    if (isValidInstaUsername(query)) {
-      return {
-        text: "Direct search used.",
-        profiles: [{
-          name: query,
-          bio: "Search result for the provided ID.",
-          url: `https://www.instagram.com/${query}/`,
-          username: query
-        }]
-      };
+    console.error('Instagram search failed:', error);
+
+    const status = String(error?.message || '').toLowerCase();
+    if (status.includes('not found') || status.includes('404')) {
+      throw new Error('User not found on Instagram.');
     }
-    throw new Error(error.message || "Search failed. Check your internet.");
+
+    throw new Error('Live Instagram data could not be fetched right now. Try again.');
   }
 };

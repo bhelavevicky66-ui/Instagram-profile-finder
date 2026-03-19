@@ -75,9 +75,9 @@ const App: React.FC = () => {
               <ResultCard profile={state.result.profiles[0]} />
               
               <div className="w-full max-w-sm bg-[#121212]/60 border border-[#262626] rounded-2xl p-5 group hover:border-[#ee2a7b]/30 transition-all">
-                 <div className="flex items-center gap-2 mb-2 text-[#ee2a7b] text-[10px] uppercase font-black tracking-widest">
-                    <i className="fas fa-magic"></i>
-                    <span>AI Brain</span>
+                  <div className="flex items-center gap-2 mb-2 text-[#ee2a7b] text-[10px] uppercase font-black tracking-widest">
+                    <i className="fas fa-satellite-dish"></i>
+                    <span>Live Data</span>
                  </div>
                  <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
                    {state.result.text.slice(0, 200)}...

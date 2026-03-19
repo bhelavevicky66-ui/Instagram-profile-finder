@@ -5,6 +5,10 @@ export interface InstagramProfile {
   url: string;
   username: string;
   profilePic?: string;
+  followers?: number;
+  following?: number;
+  posts?: number;
+  isPrivate?: boolean;
 }
 
 export interface SearchResult {
