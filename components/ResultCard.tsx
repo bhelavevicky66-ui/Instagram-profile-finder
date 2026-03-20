@@ -10,6 +10,12 @@ const ResultCard: React.FC<ResultCardProps> = ({ profile }) => {
   const posts = typeof profile.posts === 'number' ? profile.posts.toLocaleString() : '---';
   const followers = typeof profile.followers === 'number' ? profile.followers.toLocaleString() : '---';
   const following = typeof profile.following === 'number' ? profile.following.toLocaleString() : '---';
+  const fallbackAvatar = `https://unavatar.io/instagram/${encodeURIComponent(profile.username)}`;
+  const [imgSrc, setImgSrc] = React.useState<string>(profile.profilePic || fallbackAvatar);
+
+  React.useEffect(() => {
+    setImgSrc(profile.profilePic || fallbackAvatar);
+  }, [profile.profilePic, fallbackAvatar]);
 
   return (
     <div className="bg-[#121212] border border-[#262626] rounded-[2.5rem] p-8 w-full max-w-sm mx-auto shadow-[0_40px_80px_-15px_rgba(0,0,0,0.9)] animate-slideUp relative overflow-hidden group">
@@ -20,11 +26,17 @@ const ResultCard: React.FC<ResultCardProps> = ({ profile }) => {
         {/* Profile Pic Ring */}
         <div className="relative mb-6 p-1.5 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7]">
           <div className="w-28 h-28 rounded-full border-[5px] border-[#121212] overflow-hidden bg-[#1a1a1a] flex items-center justify-center">
-            {profile.profilePic ? (
-              <img src={profile.profilePic} alt={`${profile.username} profile`} className="w-full h-full object-cover" />
-            ) : (
-              <i className="fab fa-instagram text-5xl text-slate-800"></i>
-            )}
+            <img
+              src={imgSrc}
+              alt={`${profile.username} profile`}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+              onError={() => {
+                if (imgSrc !== fallbackAvatar) {
+                  setImgSrc(fallbackAvatar);
+                }
+              }}
+            />
           </div>
           <div className="absolute bottom-1 right-1 w-8 h-8 bg-[#0095f6] rounded-full border-4 border-[#121212] flex items-center justify-center">
              <i className="fas fa-check text-[10px] text-white"></i>
