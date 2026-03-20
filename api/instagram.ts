@@ -43,7 +43,20 @@ const extractCsrf = (cookieHeader: string): string => {
   return match?.[1] || '';
 };
 
-const getSessionCookie = async (userAgent: string): Promise<string> => {
+const extractRolloutHash = (html: string): string => {
+  const match = html.match(/"rollout_hash":"([^"]+)"/);
+  return match?.[1] || '';
+};
+
+const extractLsd = (html: string): string => {
+  const jsonToken = html.match(/"LSD",\[\],\{"token":"([^"]+)"/);
+  if (jsonToken?.[1]) return jsonToken[1];
+
+  const inputToken = html.match(/name="lsd"\s+value="([^"]+)"/i);
+  return inputToken?.[1] || '';
+};
+
+const bootstrapSession = async (userAgent: string): Promise<{ cookie: string; csrf: string; rolloutHash: string; lsd: string }> => {
   try {
     const warmup = await fetch(`${WEB_BASE}/`, {
       method: 'GET',
@@ -55,9 +68,22 @@ const getSessionCookie = async (userAgent: string): Promise<string> => {
       redirect: 'follow',
     });
 
-    return extractCookies(warmup.headers.get('set-cookie'));
+    const html = await warmup.text();
+    const cookie = extractCookies(warmup.headers.get('set-cookie'));
+
+    return {
+      cookie,
+      csrf: extractCsrf(cookie),
+      rolloutHash: extractRolloutHash(html),
+      lsd: extractLsd(html),
+    };
   } catch {
-    return '';
+    return {
+      cookie: '',
+      csrf: '',
+      rolloutHash: '',
+      lsd: '',
+    };
   }
 };
 
@@ -65,8 +91,7 @@ const fetchInstagramJson = async (path: string) => {
   let lastError: any = null;
 
   for (const userAgent of USER_AGENTS) {
-    const cookie = await getSessionCookie(userAgent);
-    const csrf = extractCsrf(cookie);
+    const session = await bootstrapSession(userAgent);
 
     try {
       const response = await fetch(`${WEB_BASE}${path}`, {
@@ -74,13 +99,16 @@ const fetchInstagramJson = async (path: string) => {
         headers: {
           'x-ig-app-id': INSTAGRAM_APP_ID,
           'x-requested-with': 'XMLHttpRequest',
+          'x-asbd-id': '129477',
+          'x-instagram-ajax': session.rolloutHash || '1',
           'user-agent': userAgent,
           accept: 'application/json, text/plain, */*',
           'accept-language': 'en-US,en;q=0.9',
           origin: WEB_BASE,
           referer: `${WEB_BASE}/`,
-          ...(cookie ? { cookie } : {}),
-          ...(csrf ? { 'x-csrftoken': csrf } : {}),
+          ...(session.cookie ? { cookie: session.cookie } : {}),
+          ...(session.csrf ? { 'x-csrftoken': session.csrf } : {}),
+          ...(session.lsd ? { 'x-fb-lsd': session.lsd } : {}),
         },
       });
 
